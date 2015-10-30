@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<svg width="215.9mm" height="279.4mm"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <rect x="40mm" y="40mm" width="40mm" height="40mm" fill="red"/>
+  <rect x="120mm" y="40mm" width="40mm" height="40mm" fill="green"/>
+  <rect x="80mm" y="80mm" width="40mm" height="40mm" fill="blue"/>
+</svg>
