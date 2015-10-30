@@ -61,19 +61,30 @@ int main() {
 
     auto camera = cv::VideoCapture(-1);
     while (camera.isOpened()) {
-        cv::Mat frame, greyed;
-        cv::Mat planes[3];
-        cv::Mat tmp, mask, corners, masked;
+        cv::Mat frame, hsv, planes[3];
 
         if (!camera.read(frame)) break;
-        greyed = cv::Mat::zeros(frame.size(), CV_32FC1);
+        // greyed = cv::Mat::zeros(frame.size(), CV_32FC1);
+        hsv = cv::Mat::zeros(frame.size(), CV_32FC3);
 
         cv::split(frame, planes);
-        cv::cvtColor(frame, greyed, CV_RGB2GRAY);
-        getCorners(greyed, corners, corner_k);
-        cv::max(planes[0], planes[1], tmp);
-        cv::max(planes[2], tmp, mask);
-        cv::min(mask, corners, masked);
+        // cv::cvtColor(frame, greyed, CV_RGB2GRAY);
+        // getCorners(greyed, corners, corner_k);
+        cv::cvtColor(frame, hsv, CV_BGR2HSV);
+        cv::Mat hsv_set[3];
+        cv::split(hsv, hsv_set);
+
+        cv::Mat corners[3], corners_tot, tmp;
+        getCorners(planes[0], corners[0], corner_k);
+        getCorners(planes[1], corners[1], corner_k);
+        getCorners(planes[2], corners[2], corner_k);
+
+        cv::max(corners[0], corners[1], tmp);
+        cv::max(corners[2], tmp, corners_tot);
+
+        cv::Mat tmp2, mask, masked;
+        cv::compare(hsv_set[1], 32, mask, cv::CMP_GE);
+        cv::min(mask, corners_tot, masked);
         cv::imshow("feed", frame);
         cv::imshow("corners", masked);
         cv::imshow("mask", mask);
