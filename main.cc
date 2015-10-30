@@ -51,18 +51,6 @@ double corner_k = 0.004;
 int main() {
     cv::namedWindow("feed");
     cv::namedWindow("corners");
-    /*
-    for (auto i = 0; i < 3; i++) {
-        cv::namedWindow(planeNames[i]);
-        cv::createTrackbar(
-                std::string(planeNames[i]) + "_bar",
-                planeNames[i],
-                nullptr,
-                100,
-                onAdjustK,
-                static_cast<void*>(&ks[i]));
-    }
-    */
     cv::createTrackbar(
             "corners_bar",
             "corners",
@@ -73,25 +61,22 @@ int main() {
 
     auto camera = cv::VideoCapture(-1);
     while (camera.isOpened()) {
-        cv::Mat frame, recombined;
-        cv::Mat corners[3], planes[3];
+        cv::Mat frame, greyed;
+        cv::Mat planes[3];
+        cv::Mat tmp, mask, corners, masked;
 
         if (!camera.read(frame)) break;
+        greyed = cv::Mat::zeros(frame.size(), CV_32FC1);
+
         cv::split(frame, planes);
-        for (int i = 0; i < 3; i++) {
-            // getCorners(planes[i], corners, ks[i]);
-            getCorners(planes[i], corners[i], corner_k);
-            // cv::imshow(planeNames[i], corners[i]);
-        }
-        // cv::merge(corners, 3, recombined);
-        // greyed = cv::Mat::zeros(frame.size(), CV_32FC1);
-        // cv::cvtColor(frame, greyed, CV_RGB2GRAY);
-        cv::Mat tmp1, tmp2;
-        cv::add(corners[0], corners[1], tmp1);
-        cv::add(tmp1, corners[2], tmp2);
+        cv::cvtColor(frame, greyed, CV_RGB2GRAY);
+        getCorners(greyed, corners, corner_k);
+        cv::max(planes[0], planes[1], tmp);
+        cv::max(planes[2], tmp, mask);
+        cv::min(mask, corners, masked);
         cv::imshow("feed", frame);
-        // cv::imshow("corners", recombined);
-        cv::imshow("corners", tmp2);
+        cv::imshow("corners", masked);
+        cv::imshow("mask", mask);
         int k = cv::waitKey(33);
         if (k == 27) break;
     }
