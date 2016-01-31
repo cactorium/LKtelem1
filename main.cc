@@ -44,28 +44,72 @@ void Saturation(const cv::Mat &frame, cv::Mat &dst) {
   }
 }
 
+struct LivePoint {
+  cv::Point2f point;
+  int life;
+};
+
+void AgePoints(std::vector<LivePoint> &vec) {
+  std::for_each(vec.begin(), vec.end(), [](LivePoint &lp) {
+      lp.life--;
+  });
+  auto newEnd = std::remove_if(vec.begin(), vec.end(), [](const LivePoint &lp) {
+      return lp.life < 0;
+  });
+  vec.resize(newEnd - vec.begin());
+}
+
+const int kMergeThreshold = 5;
+const int kStartingLife = 10;
+
+// merge a new list of points with the existing one; if a new point is found
+// close to an old one, replace the old with the new, else add to the end 
+// of the list
+void MergePoints(std::vector<LivePoint> &vec, const std::vector<cv::Point2f> &nv) {
+  std::for_each(nv.begin(), nv.end(), [&](const cv::Point2f &p) {
+    bool hasMatch = false;
+    auto newEnd = std::remove_if(vec.begin(), vec.end(), [&](const LivePoint &lp) {
+      // woo Manhattan distance because I'm lazy
+      auto dist = std::min(std::abs(lp.point.x - p.x), std::abs(lp.point.y - p.y));
+      if (dist < kMergeThreshold && !hasMatch) {
+        hasMatch = true;
+        std::cout << "found match" << std::endl;
+        return true;
+      } else {
+        return false;
+      }
+    });
+    vec.resize(newEnd - vec.begin());
+    vec.push_back(LivePoint{
+        p,
+        kStartingLife
+    });
+  });
+}
+
 int main(int argc, char *argv[]) {
   cv::namedWindow("feed");
   cv::namedWindow("corners");
 
   auto camera = cv::VideoCapture(-1);
-  auto corners = std::vector<cv::Point2f>(16);
+  auto corners = std::vector<LivePoint>();
   while (camera.isOpened()) {
-    corners.clear();
-
     cv::Mat frame;
 
     if (!camera.read(frame)) break;
 
     cv::Mat grey;
     cv::cvtColor(frame, grey, cv::COLOR_RGB2GRAY);
-    GetCorners(grey, corners);
+    AgePoints(corners);
+    auto newCorners = std::vector<cv::Point2f>();
+    GetCorners(grey, newCorners);
+    MergePoints(corners, newCorners);
     std::sort(corners.begin(), corners.end(), 
-        [](const cv::Point2f &a, const cv::Point2f &b) -> bool {
-          if (std::abs(a.x - b.x) < 10.0f) {
-            return a.y < b.y;
+        [](const LivePoint &a, const LivePoint &b) -> bool {
+          if (std::abs(a.point.x - b.point.x) < 10.0f) {
+            return a.point.y < b.point.y;
           } else {
-            return a.x < b.x;
+            return a.point.x < b.point.x;
           }
         });
     // hsv = cv::Mat::zeros(frame.size(), CV_32FC3);
@@ -75,9 +119,10 @@ int main(int argc, char *argv[]) {
     std::cout << "corners start " << corners.size() << 
         ", camera size: " << frame.cols << "x" << frame.rows << std::endl;
     for (auto &p: corners) {
-      std::cout << "corner at " << p.x << ", " << p.y << std::endl; 
+      std::cout << "corner at " << p.point.x << ", " << p.point.y <<
+          ", life " << p.life << std::endl; 
       // cv::circle(sat, p, 4, 1.0f, 1, 8);
-      cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
+      cv::circle(grey, p.point, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
     }
     // cv::imshow("corners", satSmooth);
     cv::imshow("feed", frame);
