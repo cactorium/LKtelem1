@@ -1,113 +1,90 @@
 // UCF Lunar Knights!
 
+#include <algorithm>
 #include <iostream>
+#include <vector>
 #include <string>
+
+#include <cstdlib>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-// camera skeleton code is from stack overflow: 
+// camera skeleton code is from stack overflow:
 // http://stackoverflow.com/questions/21202088/how-to-get-live-stream-from-webcam-in-opencv-ubuntu
 // and
 // http://docs.opencv.org/2.4/doc/tutorials/features2d/trackingmotion/harris_detector/harris_detector.html
 
-const int blockSize = 2;
-const int apertureSize = 3;
-const char* kWindowName = "test";
+const int kBlockSize = 2;
+const int kApertureSize = 3;
 
-static void onAdjustK(int newK, void* target) {
-    auto k = static_cast<double*>(target);
-    *k = newK / 1000.0;
-    std::cerr << "new k: " << *k << std::endl;
+void GetCorners(const cv::Mat &src, std::vector<cv::Point2f> &dst) {
+  cv::Mat corners = cv::Mat::zeros(src.size(), CV_32FC1);
+  cv::goodFeaturesToTrack(src, dst, 16, 0.01, 20);
 }
 
-void getCorners(const cv::Mat &src, cv::Mat &dst, double k) {
-    cv::Mat corners = cv::Mat::zeros(src.size(), CV_32FC1);
-    // cv::cornerMinEigenVal(greyed, corners, blockSize);
-    cv::cornerHarris(
-            src,
-            corners,
-            blockSize,
-            apertureSize,
-            k,
-            cv::BORDER_DEFAULT);
-    cv::Mat corners_norm = cv::Mat::zeros(src.size(), CV_32FC1);
-    cv::normalize(
-            corners,
-            corners_norm,
-            0,
-            255,
-            cv::NORM_MINMAX,
-            CV_32FC1,
-            cv::Mat());
-    cv::convertScaleAbs(corners_norm, dst);
+int VecMax(const cv::Vec3b &v) {
+  return std::max({v[0], v[1], v[2]});
 }
 
-void chroma(const cv::Mat &frame, cv::Mat &dst, int idx[], uchar threshold) {
-    dst = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for (int y = 0; y < frame.rows; y++) {
-        for (int x = 0; x < frame.cols; x++) {
-            int target = frame.at<cv::Vec3b>(y, x)[idx[0]];
-            int other1 = frame.at<cv::Vec3b>(y, x)[idx[1]];
-            int other2 = frame.at<cv::Vec3b>(y, x)[idx[2]];
-            dst.at<uchar>(y, x) = static_cast<uchar>(
-                    target*(255-other1)*(255-other2) >> 16);
-        }
+int VecMin(const cv::Vec3b &v) {
+  return std::min({v[0], v[1], v[2]});
+}
+
+
+void Saturation(const cv::Mat &frame, cv::Mat &dst) {
+  dst = cv::Mat::zeros(frame.size(), CV_32FC1);
+  for (int y = 0; y < frame.rows; y++) {
+    for (int x = 0; x < frame.cols; x++) {
+      float c = VecMax(frame.at<cv::Vec3b>(y, x)) - VecMin(frame.at<cv::Vec3b>(y, x));
+      float v = VecMax(frame.at<cv::Vec3b>(y, x));
+      dst.at<float>(y, x) = std::abs(v) > 0.2f ? c/v : 0.0f;
     }
+  }
 }
 
-// std::string planeNames[3] = {"red", "green", "blue"};
-// double ks[sizeof(planeNames)];
-double corner_k = 0.004;
-int threshold = 0x80;
+int main(int argc, char *argv[]) {
+  cv::namedWindow("feed");
+  cv::namedWindow("corners");
 
-int main() {
-    cv::namedWindow("feed");
-    cv::namedWindow("corners");
-    cv::namedWindow("blue");
-    cv::createTrackbar(
-            "corners_bar",
-            "corners",
-            nullptr,
-            100,
-            onAdjustK,
-            static_cast<void*>(&corner_k));
-    cv::createTrackbar(
-            "threshold",
-            "feed",
-            &threshold,
-            256,
-            nullptr,
-            nullptr);
+  auto camera = cv::VideoCapture(-1);
+  auto corners = std::vector<cv::Point2f>(16);
+  while (camera.isOpened()) {
+    corners.clear();
 
-    auto camera = cv::VideoCapture(-1);
-    while (camera.isOpened()) {
-        cv::Mat frame, greyed, hsv;
+    cv::Mat frame;
 
-        if (!camera.read(frame)) break;
-        // cv::Mat planes[3];
-        // cv::split(frame, planes);
+    if (!camera.read(frame)) break;
 
-        cv::Mat red, green, blue;
+    cv::Mat grey;
+    cv::cvtColor(frame, grey, cv::COLOR_RGB2GRAY);
+    GetCorners(grey, corners);
+    std::sort(corners.begin(), corners.end(), 
+        [](const cv::Point2f &a, const cv::Point2f &b) -> bool {
+          if (std::abs(a.x - b.x) < 10.0f) {
+            return a.y < b.y;
+          } else {
+            return a.x < b.x;
+          }
+        });
+    // hsv = cv::Mat::zeros(frame.size(), CV_32FC3);
+    // cv::Mat corners, greyed_corners, mask, masked;
+    // GetCorners(greyed, greyed_corners, corner_k);
 
-        int perms[][3] = {{0, 1, 2}, {1, 0, 2}, {2, 0, 1}};
-        chroma(frame, red, perms[0], threshold);
-        chroma(frame, green, perms[1], threshold);
-        chroma(frame, blue, perms[2], threshold);
-
-        hsv = cv::Mat::zeros(frame.size(), CV_32FC3);
-        cv::cvtColor(frame, greyed, CV_RGB2GRAY);
-        cv::Mat corners, greyed_corners, mask, masked;
-        getCorners(greyed, greyed_corners, corner_k);
-
-        cv::imshow("feed", red);
-        cv::imshow("corners", green);
-        cv::imshow("blue", blue);
-
-        int k = cv::waitKey(33);
-        if (k != -1) break;
+    std::cout << "corners start " << corners.size() << std::endl;
+    for (auto &p: corners) {
+      std::cout << "corner at " << p.x << ", " << p.y << std::endl; 
+      // cv::circle(sat, p, 4, 1.0f, 1, 8);
+      cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
     }
+    // cv::imshow("corners", satSmooth);
+    cv::imshow("feed", frame);
+    cv::imshow("corners", grey);
 
-    return 0;
+    int k = cv::waitKey(16);
+    // if (k != -1) break;
+  }
+
+  return 0;
 }
