@@ -72,7 +72,8 @@ int main(int argc, char *argv[]) {
     // cv::Mat corners, greyed_corners, mask, masked;
     // GetCorners(greyed, greyed_corners, corner_k);
 
-    std::cout << "corners start " << corners.size() << std::endl;
+    std::cout << "corners start " << corners.size() << 
+        ", camera size: " << frame.cols << "x" << frame.rows << std::endl;
     for (auto &p: corners) {
       std::cout << "corner at " << p.x << ", " << p.y << std::endl; 
       // cv::circle(sat, p, 4, 1.0f, 1, 8);
