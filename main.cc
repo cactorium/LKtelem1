@@ -32,18 +32,6 @@ int VecMin(const cv::Vec3b &v) {
   return std::min({v[0], v[1], v[2]});
 }
 
-
-void Saturation(const cv::Mat &frame, cv::Mat &dst) {
-  dst = cv::Mat::zeros(frame.size(), CV_32FC1);
-  for (int y = 0; y < frame.rows; y++) {
-    for (int x = 0; x < frame.cols; x++) {
-      float c = VecMax(frame.at<cv::Vec3b>(y, x)) - VecMin(frame.at<cv::Vec3b>(y, x));
-      float v = VecMax(frame.at<cv::Vec3b>(y, x));
-      dst.at<float>(y, x) = std::abs(v) > 0.2f ? c/v : 0.0f;
-    }
-  }
-}
-
 int main(int argc, char *argv[]) {
   cv::namedWindow("feed");
   cv::namedWindow("corners");
