@@ -33,16 +33,18 @@ unsigned char UcharClamp(float f) {
   }
 }
 
-TaggedYuvPoints SamplePoints(const TaggedPoints &points, const cv::Mat &frame) {
+TaggedYuvPoints SamplePoints(const Points &points, const cv::Mat &frame) {
   auto yuvs = std::vector<TaggedYuvPoint>();
+  int idx = 0;
   for (const auto p: points) {
     for (auto i = 0; i < kNumSamples; i++) {
-      const auto x = p.p.x + kSampleRadius * cos(2*i*PI/kNumSamples);
-      const auto y = p.p.y + kSampleRadius * sin(2*i*PI/kNumSamples);
+      const auto x = p.x + kSampleRadius * cos(2*i*PI/kNumSamples);
+      const auto y = p.y + kSampleRadius * sin(2*i*PI/kNumSamples);
       const auto color = frame.at<cv::Vec3b>(y, x);
       const auto tmp = Yuv(color[2], color[1], color[0]);
-      yuvs.push_back({p.idx, {tmp[0], tmp[1], tmp[2]}});
+      yuvs.push_back({idx, {tmp[0], tmp[1], tmp[2]}});
     }
+    ++idx;
   }
   return yuvs;
 }

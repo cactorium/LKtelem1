@@ -75,12 +75,7 @@ int main(int argc, char *argv[]) {
     // apply k-means clustering on the color samples to group them by color.
     // Then the ones that match up with the four most popular sets (white+colors)
     // are the square corners! Lol dang this is gonna suck to implement
-
-    std::array<cv::Vec3f, 7> means;
-    std::vector<TaggedPoint> points;
-    for (auto &p: corners) {
-      // generate points in a small circle around each detected corner
-    }
+    auto clusters = KmeansCluster(SamplePoints(corners, frame));
 
     for (auto &p: corners) {
       std::cout << "corner at " << p.x << ", " << p.y << std::endl; 
