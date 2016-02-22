@@ -76,11 +76,39 @@ int main(int argc, char *argv[]) {
     // Then the ones that match up with the four most popular sets (white+colors)
     // are the square corners! Lol dang this is gonna suck to implement
     auto clusters = KmeansCluster(SamplePoints(corners, frame));
+    auto clusterCount = std::vector<int>(corners.size(), 0);
+    {
+      auto count = 0;
+      for (const auto &c: clusters) {
+        for (const auto &p: c.list) {
+          clusterCount[p.idx] |= 1 << count;
+        }
+        ++count;
+      }
+    }
 
-    for (auto &p: corners) {
-      std::cout << "corner at " << p.x << ", " << p.y << std::endl; 
-      // cv::circle(sat, p, 4, 1.0f, 1, 8);
-      cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
+    // let's count how many each has now:
+    std::transform(clusterCount.begin(), clusterCount.end(), clusterCount.begin(),
+        [&](int &in) -> int {
+          int count = 0;
+          for(auto i = 0; i < clusters.size() && i < 8*sizeof(int); i++) {
+            if (in & 1 << i) {
+              ++count;
+            }
+          }
+          return count;
+        }
+      );
+
+    {
+      int count = 0;
+      for (const auto &p: corners) {
+        std::cout << "corner at " << p.x << ", " << p.y << std::endl; 
+        // cv::circle(sat, p, 4, 1.0f, 1, 8);
+        unsigned char gry = 36*clusterCount[count];
+        cv::circle(grey, p, 8, cv::Scalar(gry, gry, gry), 1, 8, 0);
+        ++count;
+      }
     }
     // cv::imshow("corners", satSmooth);
     cv::imshow("feed", frame);

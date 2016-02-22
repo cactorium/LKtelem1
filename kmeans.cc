@@ -10,16 +10,16 @@ const int kNumClusters = 7;
 
 // values copied from here: 
 // http://stackoverflow.com/questions/5392061/algorithm-to-check-similarity-of-colors-based-on-rgb-values-or-maybe-hsv
-cv::Vec3f Yuv(unsigned char r, unsigned char g, unsigned char b) {
-  return cv::Vec3f(0.299*r + 0.587*g + 0.114*b,
-                  -0.14713*r -0.28886*g + 0.436*b,
-                  0.615*r - 0.51499*g - 0.10001*b);
+Vec3f Yuv(unsigned char r, unsigned char g, unsigned char b) {
+  return Vec3f{(0.299*r + 0.587*g + 0.114*b)/256.0f,
+                  (-0.14713*r -0.28886*g + 0.436*b)/256.0f,
+                  (0.615*r - 0.51499*g - 0.10001*b)/256.0f};
 }
 
-float ColorDist(const cv::Vec3f &a, const cv::Vec3f &b) {
-  const auto dy = a[0] - b[0];
-  const auto du = a[1] - b[1];
-  const auto dv = a[2] - b[2];
+float ColorDist(const Vec3f &a, const Vec3f &b) {
+  const auto dy = a.y - b.y;
+  const auto du = a.u - b.u;
+  const auto dv = a.v - b.v;
   return sqrt(/*dy*dy + */ du*du + dv*dv);
 }
 
@@ -38,11 +38,15 @@ TaggedYuvPoints SamplePoints(const Points &points, const cv::Mat &frame) {
   int idx = 0;
   for (const auto p: points) {
     for (auto i = 0; i < kNumSamples; i++) {
-      const auto x = p.x + kSampleRadius * cos(2*i*PI/kNumSamples);
-      const auto y = p.y + kSampleRadius * sin(2*i*PI/kNumSamples);
-      const auto color = frame.at<cv::Vec3b>(y, x);
-      const auto tmp = Yuv(color[2], color[1], color[0]);
-      yuvs.push_back({idx, {tmp[0], tmp[1], tmp[2]}});
+      const auto x = static_cast<int>(p.x + kSampleRadius * cos(2*i*PI/kNumSamples));
+      const auto y = static_cast<int>(p.y + kSampleRadius * sin(2*i*PI/kNumSamples));
+      if (0 <= x && x < frame.cols && 0 <= y && y < frame.rows) {
+        const auto color = frame.at<cv::Vec3b>(y, x);
+        const auto tmp = Yuv(color[2], color[1], color[0]);
+        std::cout << x << "," << y << ": " << 
+            tmp.y << ", " << tmp.u << ", " << tmp.v << std::endl;
+        yuvs.push_back({idx, tmp});
+      }
     }
     ++idx;
   }
@@ -52,17 +56,17 @@ TaggedYuvPoints SamplePoints(const Points &points, const cv::Mat &frame) {
 Clusters KmeansCluster(const TaggedYuvPoints &yuvs) {
   std::mt19937 rng;
   rng.seed(std::random_device()());
-  auto dist = std::uniform_int_distribution<unsigned char>(0, 255);
+  auto dist = std::uniform_real_distribution<float>(0.0f, 1.0f);
 
   // step 2: generate means, let's use 7 of them
   // 3 from assumed colors (red, green, blue)
   // 4 randomly selected
-  auto randomColor = [&]() -> cv::Vec3f {
-    return cv::Vec3f(dist(rng), dist(rng), dist(rng));
+  auto randomColor = [&]() -> Vec3f {
+    return Vec3f{dist(rng), dist(rng), dist(rng)};
   };
 
   Clusters clusters;
-  auto means = std::array<cv::Vec3f, kNumClusters> {
+  auto means = std::array<Vec3f, kNumClusters> {
     Yuv(0xff, 0x00, 0x00),
     Yuv(0x00, 0xff, 0x00),
     Yuv(0x00, 0x00, 0xff),
@@ -85,6 +89,7 @@ Clusters KmeansCluster(const TaggedYuvPoints &yuvs) {
         curMin = i;
         dist = curDist;
       }
+      // std::cout << curDist << std::endl;
     }
     return curMin;
   };
@@ -104,26 +109,28 @@ Clusters KmeansCluster(const TaggedYuvPoints &yuvs) {
         auto sum = std::array<float, 3>{};
         // auto sum = cv::Vec3f(0.0, 0.0, 0.0);
         for (const auto &yuv: cluster.list) {
-          sum[0] += yuv.yuv[0];
-          sum[1] += yuv.yuv[1];
-          sum[2] += yuv.yuv[2];
+          sum[0] += yuv.yuv.y;
+          sum[1] += yuv.yuv.u;
+          sum[2] += yuv.yuv.v;
         }
         sum[0] = sum[0]/static_cast<int>(cluster.list.size());
         sum[1] = sum[1]/static_cast<int>(cluster.list.size());
         sum[2] = sum[2]/static_cast<int>(cluster.list.size());
-        cluster.centroid = cv::Vec3f({sum[0], sum[1], sum[2]});
+        cluster.centroid = Vec3f{sum[0], sum[1], sum[2]};
       }
     }
     // step 2 for the k means algorithm; recluster the points
     for (auto i = 0; i < kNumClusters; i++) {
       auto newEnd = std::remove_if(clusters[i].list.begin(), clusters[i].list.end(),
-          [=](TaggedYuvPoint &p) {
+          [&](TaggedYuvPoint &p) {
             return minCluster(p) != i;
           });
       if (newEnd != clusters[i].list.end()) {
         changed = true;
-        for (auto it = newEnd; it != clusters[i].list.end(); ++newEnd) {
+        for (auto it = newEnd; it != clusters[i].list.end(); ++it) {
+          //std::cout << (*it).yuv[0] << ", " << (*it).yuv[1] << ", " << (*it).yuv[2] << std::endl;
           auto idx = minCluster(*it);
+          std::cout << i << " => " << idx << std::endl;
           clusters[idx].list.push_back(*it);
         }
         clusters[i].list.erase(newEnd, clusters[i].list.end());

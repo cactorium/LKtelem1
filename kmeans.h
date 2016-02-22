@@ -13,9 +13,15 @@ struct TaggedPoint {
 };
 */
 
+struct Vec3f {
+  float y;
+  float u;
+  float v;
+};
+
 struct TaggedYuvPoint {
   int idx;
-  cv::Vec3f yuv;
+  Vec3f yuv;
 };
 
 // typedef std::vector<TaggedPoint> TaggedPoints;
@@ -23,7 +29,7 @@ typedef std::vector<cv::Point2f> Points;
 typedef std::vector<TaggedYuvPoint> TaggedYuvPoints;
 struct Cluster {
   std::vector<TaggedYuvPoint> list;
-  cv::Vec3f centroid;
+  Vec3f centroid;
 };
 typedef std::vector<Cluster> Clusters;
 

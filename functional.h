@@ -36,6 +36,15 @@ template <typename C, typename F> struct MapT {
     }
     return ret;
   }
+
+  template <typename It> It collect(It begin, It end) {
+    auto it = begin;
+    for (auto r: *this) {
+      if (it == end) break;
+      *it = r;
+    }
+    return it;
+  }
 };
 
 template <typename C, typename F> MapT<C, F> map(C &c, F f) {
