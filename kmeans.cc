@@ -2,10 +2,11 @@
 #include <random>
 
 #include "kmeans.h"
+#include "search.h"
 
 const double PI = 3.1415926535897931159979634685441851615905761718750;
 const int kNumSamples = 16;
-const int kSampleRadius = 6;
+const int kSampleRadius = 9;
 const int kNumClusters = 11; 
 
 // values copied from here: 
@@ -37,15 +38,17 @@ TaggedYuvPoints SamplePoints(const Points &points, const cv::Mat &frame) {
   auto yuvs = std::vector<TaggedYuvPoint>();
   int idx = 0;
   for (const auto p: points) {
-    for (auto i = 0; i < kNumSamples; i++) {
-      const auto x = static_cast<int>(p.x + kSampleRadius * cos(2*i*PI/kNumSamples));
-      const auto y = static_cast<int>(p.y + kSampleRadius * sin(2*i*PI/kNumSamples));
-      if (0 <= x && x < frame.cols && 0 <= y && y < frame.rows) {
-        const auto color = frame.at<cv::Vec3b>(y, x);
-        const auto tmp = Yuv(color[2], color[1], color[0]);
-        // std::cout << x << "," << y << ": " << 
-            // tmp.y << ", " << tmp.u << ", " << tmp.v << std::endl;
-        yuvs.push_back({idx, tmp});
+    for (auto r = 1; r <= 2; r++) {
+      for (auto i = 0; i < kNumSamples; i++) {
+        const auto x = static_cast<int>(p.x + r * kSampleRadius * cos(2*i*PI/kNumSamples));
+        const auto y = static_cast<int>(p.y + r * kSampleRadius * sin(2*i*PI/kNumSamples));
+        if (0 <= x && x < frame.cols && 0 <= y && y < frame.rows) {
+          const auto color = frame.at<cv::Vec3b>(y, x);
+          const auto tmp = Yuv(color[2], color[1], color[0]);
+          // std::cout << x << "," << y << ": " << 
+              // tmp.y << ", " << tmp.u << ", " << tmp.v << std::endl;
+          yuvs.push_back({idx, tmp});
+        }
       }
     }
     ++idx;

@@ -13,6 +13,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "kmeans.h"
+#include "search.h"
+
 
 // camera skeleton code is from stack overflow:
 // http://stackoverflow.com/questions/21202088/how-to-get-live-stream-from-webcam-in-opencv-ubuntu
@@ -108,18 +110,31 @@ int main(int argc, char *argv[]) {
         }
       );
 
+    auto filteredCorners = std::vector<cv::Point2f>();
     {
       int count = 0;
       for (const auto &p: corners) {
+        /*
         std::cout << "corner at " << p.x << ", " << p.y;
         std::cout << ": " << clusterCount[count];
         std::cout << std::endl; 
+        */
         // cv::circle(sat, p, 4, 1.0f, 1, 8);
         // unsigned char gry = 80*clusterCount[count];
         if (2 <= clusterCount[count] && clusterCount[count] <= 3) {
-          cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
+          // cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
+          filteredCorners.push_back(p);
         }
         ++count;
+      }
+    }
+
+    auto finalCorners = std::vector<cv::Point2f>();
+    if (FindValidSquare(filteredCorners, frame, finalCorners)) {
+      for (const auto &p: finalCorners) {
+        std::cout << "corner at " << p.x << ", " << p.y;
+        std::cout << std::endl; 
+        cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
       }
     }
     // cv::imshow("corners", satSmooth);
