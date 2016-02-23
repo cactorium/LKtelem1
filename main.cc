@@ -87,12 +87,20 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    /*
+    std::cout << "bits start" << std::endl;
+    for (const auto &c: clusterCount) {
+      std::cout << c << std::endl;
+    }
+    std::cout << "bits end" << std::endl;
+    */
+
     // let's count how many each has now:
     std::transform(clusterCount.begin(), clusterCount.end(), clusterCount.begin(),
         [&](int &in) -> int {
           int count = 0;
           for(auto i = 0; i < clusters.size() && i < 8*sizeof(int); i++) {
-            if (in & 1 << i) {
+            if ((32 <= clusters[i].list.size()) && (in & 1 << i)) {
               ++count;
             }
           }
@@ -103,10 +111,14 @@ int main(int argc, char *argv[]) {
     {
       int count = 0;
       for (const auto &p: corners) {
-        std::cout << "corner at " << p.x << ", " << p.y << std::endl; 
+        std::cout << "corner at " << p.x << ", " << p.y;
+        std::cout << ": " << clusterCount[count];
+        std::cout << std::endl; 
         // cv::circle(sat, p, 4, 1.0f, 1, 8);
-        unsigned char gry = 36*clusterCount[count];
-        cv::circle(grey, p, 8, cv::Scalar(gry, gry, gry), 1, 8, 0);
+        // unsigned char gry = 80*clusterCount[count];
+        if (2 <= clusterCount[count] && clusterCount[count] <= 3) {
+          cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
+        }
         ++count;
       }
     }
