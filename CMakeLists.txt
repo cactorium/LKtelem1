@@ -9,3 +9,7 @@ project( LKtelemetry )
 find_package( OpenCV REQUIRED )
 add_executable( LKtelemetry main.cc kmeans.cc search.cc )
 target_link_libraries( LKtelemetry ${OpenCV_LIBS} )
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g")
+
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")

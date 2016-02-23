@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
     // apply k-means clustering on the color samples to group them by color.
     // Then the ones that match up with the four most popular sets (white+colors)
     // are the square corners! Lol dang this is gonna suck to implement
+    /*
     auto clusters = KmeansCluster(SamplePoints(corners, frame));
     auto clusterCount = std::vector<int>(corners.size(), 0);
     {
@@ -88,14 +89,6 @@ int main(int argc, char *argv[]) {
         ++count;
       }
     }
-
-    /*
-    std::cout << "bits start" << std::endl;
-    for (const auto &c: clusterCount) {
-      std::cout << c << std::endl;
-    }
-    std::cout << "bits end" << std::endl;
-    */
 
     // let's count how many each has now:
     std::transform(clusterCount.begin(), clusterCount.end(), clusterCount.begin(),
@@ -114,11 +107,6 @@ int main(int argc, char *argv[]) {
     {
       int count = 0;
       for (const auto &p: corners) {
-        /*
-        std::cout << "corner at " << p.x << ", " << p.y;
-        std::cout << ": " << clusterCount[count];
-        std::cout << std::endl; 
-        */
         // cv::circle(sat, p, 4, 1.0f, 1, 8);
         // unsigned char gry = 80*clusterCount[count];
         if (2 <= clusterCount[count] && clusterCount[count] <= 3) {
@@ -128,9 +116,10 @@ int main(int argc, char *argv[]) {
         ++count;
       }
     }
+      */
 
     auto finalCorners = std::vector<cv::Point2f>();
-    if (FindValidSquare(filteredCorners, frame, finalCorners)) {
+    if (FindValidSquare(corners, frame, finalCorners)) {
       for (const auto &p: finalCorners) {
         std::cout << "corner at " << p.x << ", " << p.y;
         std::cout << std::endl; 

@@ -6,9 +6,9 @@ struct Vec2f {
   float x, y;
 };
 
-const float kSampleBounds = 0.2;
-const int  kNumSamples = 64;
-const float kTol = 8.0f;
+const float kSampleBounds = 0.02f;
+const int kNumSamples = 128;
+const float kTol = 16.0f;
 
 bool FindValidSquare(const std::vector<cv::Point2f>& pts, const cv::Mat &frame,
     std::vector<cv::Point2f> &ret) {
@@ -22,69 +22,29 @@ bool FindValidSquare(const std::vector<cv::Point2f>& pts, const cv::Mat &frame,
     auto dr = a[2] - b[2];
     auto dg = a[1] - b[1];
     auto db = a[0] - b[0];
-    return sqrt(dr*dr + dg*dg + db*db);
+    return abs(dr) + abs(dg) + abs(db);
   };
 
+  struct Result {
+    cv::Point2f pts[3];
+    float gradient;
+  };
+  auto results = std::vector<Result>();
   // try out as many N*(N-1)*(N-2)/6 combinations of points before
   // we get what seems like 3 corners of a square.
-  // on three corners of a square, the diagonal (longest side) will be of
-  // approximately uniform color. So that's what we'll use to detect a square!
-  //
-  //
-  // EDIT: soo the diagonal DOES work, but it also has a lot of false positives
   // let's traverse from the centroid back out towards each point
   for (int i = 0; i < pts.size(); i++) {
     for (int j = i + 1; j < pts.size(); j++) {
       for (int k = j + 1; k < pts.size(); k++) {
-        // soo find the longest length
-        auto a = pts[i], b = pts[j], c = pts[k];
-        auto ab = dist(a, b),
-             ac = dist(a, c),
-             bc = dist(b, c);
-        /*
-        cv::Point2f start, end;
-        float dist;
-        if (ab > ac && ab > bc) {
-          start = a, end = b, dist = ab;
-        } else if (ac > ab && ac > bc) {
-          start = a, end = c, dist = ac;
-        } else {
-          start = b, end = c, dist = bc;
-        }
-        auto dx = end.x - start.x;
-        auto dy = end.y - start.y;
-        auto s = [=](float l) -> Vec2f {
-          return Vec2f{start.x + l*dx, start.y + l*dy};
-        };
-
-        cv::Vec3b lastPoint;
-        {
-          auto tmp = s(kSampleBounds);
-          lastPoint = frame.at<cv::Vec3b>(
-              static_cast<int>(tmp.y), 
-              static_cast<int>(tmp.x));
-        }
-
-        bool success = true;
-        for (auto q = 0; q < kNumSamples; q++) {
-          auto tmp = s(kSampleBounds + (1.0 - 2*kSampleBounds)*q/kNumSamples);
-          auto curPoint = frame.at<cv::Vec3b>(
-              static_cast<int>(tmp.y), 
-              static_cast<int>(tmp.x));
-          if (colorDiff(curPoint, lastPoint)/dist >= kTol/kNumSamples) {
-            success = false;
-            break;
-          }
-          lastPoint = curPoint;
-        }
-        */
-
+        auto a = pts[i],
+             b = pts[j],
+             c = pts[k];
         auto centroid = cv::Point2f{
           (a.x + b.x + c.x)/3,
           (a.y + b.y + c.y)/3,
         };
 
-        bool success = true;
+        float maxGradient = 0.0f;
         for (const auto &dst: {a, b, c}) {
           const auto dx = dst.x - centroid.x;
           const auto dy = dst.y - centroid.y;
@@ -105,22 +65,30 @@ bool FindValidSquare(const std::vector<cv::Point2f>& pts, const cv::Mat &frame,
             const auto curPoint = frame.at<cv::Vec3b>(
                 static_cast<int>(tmp.y), 
                 static_cast<int>(tmp.x));
-            if (colorDiff(curPoint, lastPoint)/d >= kTol/kNumSamples) {
-              success = false;
-              break;
+            const auto curGradient = colorDiff(curPoint, lastPoint)*kNumSamples/d;
+            if (curGradient > maxGradient) {
+              maxGradient = curGradient;
             }
             lastPoint = curPoint;
           }
         }
-
-        if (success) {
-          ret.push_back(a);
-          ret.push_back(b);
-          ret.push_back(c);
-          return true;
-        }
+        results.push_back(Result{{a, b, c}, maxGradient});
       }
     }
+  }
+
+  if (results.size() <= 0) {
+    return false;
+  }
+  auto result = *std::min_element(results.begin(), results.end(),
+      [](const Result &first, const Result &second) -> bool {
+        return first.gradient < second.gradient;
+      });
+  if (result.gradient <= kTol) {
+    ret.push_back(result.pts[0]);
+    ret.push_back(result.pts[1]);
+    ret.push_back(result.pts[2]);
+    return true;
   }
   return false;
 }
