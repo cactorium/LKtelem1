@@ -10,7 +10,7 @@ struct Vec2f {
   float x, y;
 };
 
-const float kSampleBounds = 0.02f;
+const float kSampleBounds = 0.05f;
 const int kNumSamples = 128;
 const float kTol = 16.0f;
 
@@ -65,7 +65,7 @@ bool FindValidSquare(const std::vector<cv::Point2f>& pts, const cv::Mat &gry,
           float sum = 0.0f;
           float min = 100000000.0f;
           float max = -100000000.0f;
-          const float numSamples = dist(points[0], points[1])/1.0f;
+          const float numSamples = dist(points[0], points[1])*1.1f;
           for (int q = 0; q < numSamples; q++) {
             const auto pt = s(kSampleBounds + (1.0f-2*kSampleBounds)*q/numSamples);
             const auto val = edge.at<short>(static_cast<int>(pt.y), static_cast<int>(pt.x));
@@ -80,11 +80,11 @@ bool FindValidSquare(const std::vector<cv::Point2f>& pts, const cv::Mat &gry,
           averages.push_back(ScoreDist{numSamples, sum/numSamples, min, max});
         }
         if (averages[0].d > averages[1].d && averages[0].d > averages[2].d) {
-          results.push_back(Result{{a, b, c}, -averages[0].m+averages[1].M+averages[2].M});
-        } else if (averages[1].d > averages[0].d && averages[1].d > averages[0].d) {
-          results.push_back(Result{{a, b, c}, averages[0].M-averages[1].m+averages[2].M});
+          results.push_back(Result{{a, b, c}, -2*averages[0].m+averages[1].M+averages[2].M});
+        } else if (averages[1].d > averages[0].d && averages[1].d > averages[2].d) {
+          results.push_back(Result{{a, b, c}, averages[0].M-2*averages[1].m+averages[2].M});
         } else {
-          results.push_back(Result{{a, b, c}, averages[0].M+averages[1].M-averages[2].m});
+          results.push_back(Result{{a, b, c}, averages[0].M+averages[1].M-2*averages[2].m});
         }
       }
     }
