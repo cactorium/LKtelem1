@@ -119,11 +119,16 @@ int main(int argc, char *argv[]) {
       */
 
     auto finalCorners = std::vector<cv::Point2f>();
-    if (FindValidSquare(corners, frame, finalCorners)) {
+    if (FindValidSquare(corners, grey, finalCorners)) {
       for (const auto &p: finalCorners) {
         std::cout << "corner at " << p.x << ", " << p.y;
         std::cout << std::endl; 
         cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
+        for (const auto &q: finalCorners) {
+          if (p != q) {
+            cv::line(grey, p, q, cv::Scalar(127, 127, 127));
+          }
+        }
       }
     }
     // cv::imshow("corners", satSmooth);
