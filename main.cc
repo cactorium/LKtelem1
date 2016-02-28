@@ -27,6 +27,8 @@ const int kApertureSize = 3;
 const int kNumSamples = 16;
 const int kSampleRadius = 6;
 
+const int kMaxMatchAttempts = 4;
+
 constexpr double PI = 3.1415926535898;
 
 void GetCorners(const cv::Mat &src, std::vector<cv::Point2f> &dst) {
@@ -360,15 +362,21 @@ int main(int argc, char *argv[]) {
         });
     {
       auto r = finalCorners[finalCorners.size()-1];
-      // let's see where this triangle is relative to our drawing thing
-      // first let's figure out its orientation; we need to know
-      // which line is the diagonal first
-      cv::Point2f sortedPoints[3];
-      SortPoints(r, sortedPoints);
-      
-      // now let's match it to one of the possible places on the square thing
       auto matchResults = std::vector<MatchResult>();
-      auto inSquare = MatchPattern(frame, sortedPoints, matchResults);
+      bool inSquare = false;
+      cv::Point2f sortedPoints[3];
+      for (auto idx = 0; idx < kMaxMatchAttempts && idx < finalCorners.size(); ++idx) {
+        r = finalCorners[finalCorners.size() - 1 - idx];
+        // let's see where this triangle is relative to our drawing thing
+        // first let's figure out its orientation; we need to know
+        // which line is the diagonal first
+        SortPoints(r, sortedPoints);
+        
+        // now let's match it to one of the possible places on the square thing
+        matchResults.clear();
+        inSquare = MatchPattern(frame, sortedPoints, matchResults);
+        if (inSquare) break;
+      }
       
       const auto triColor = inSquare ? cv::Scalar(0, 0, 0) : cv::Scalar(0, 0, 255);
       for (const auto &p: sortedPoints) {
