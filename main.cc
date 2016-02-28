@@ -118,7 +118,9 @@ int main(int argc, char *argv[]) {
     }
       */
 
-    auto finalCorners = std::vector<cv::Point2f>();
+    //auto finalCorners = std::vector<cv::Point2f>();
+    auto finalCorners = FindValidSquare(corners, grey);
+    /*
     if (FindValidSquare(corners, grey, finalCorners)) {
       for (const auto &p: finalCorners) {
         std::cout << "corner at " << p.x << ", " << p.y;
@@ -127,6 +129,22 @@ int main(int argc, char *argv[]) {
         for (const auto &q: finalCorners) {
           if (p != q) {
             cv::line(grey, p, q, cv::Scalar(127, 127, 127));
+          }
+        }
+      }
+    }
+    */
+    std::sort(finalCorners.begin(), finalCorners.end(),
+        [](const Result &a, const Result &b) -> bool {
+          return a.score < b.score;
+        });
+    {
+      auto r = finalCorners[finalCorners.size()-1];
+      for (const auto &p: r.pts) {
+        for (const auto &q: r.pts) {
+          if (p != q) {
+            auto shade = static_cast<char>(0);
+            cv::line(grey, p, q, cv::Scalar(shade, shade, shade));
           }
         }
       }
