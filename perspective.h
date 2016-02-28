@@ -13,6 +13,9 @@ struct Vector3f {
 };
 
 struct Transform {
+  // first one represents translation in x, y, and z axes in meters
+  // second one represents euler angles because I'm too lazy to 
+  // make another struct to properly store Euler angles
   Vector3f translate, orientation;
 };
 
