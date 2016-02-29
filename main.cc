@@ -14,34 +14,26 @@
 
 #include "kmeans.h"
 #include "search.h"
-
+#include "perspective.h"
 
 // camera skeleton code is from stack overflow:
 // http://stackoverflow.com/questions/21202088/how-to-get-live-stream-from-webcam-in-opencv-ubuntu
 // and
 // http://docs.opencv.org/2.4/doc/tutorials/features2d/trackingmotion/harris_detector/harris_detector.html
 
-const int kBlockSize = 2;
-const int kApertureSize = 3;
+const unsigned int kBlockSize = 2;
+const unsigned int kApertureSize = 3;
 
-const int kNumSamples = 16;
-const int kSampleRadius = 6;
+const unsigned int kNumSamples = 16;
+const unsigned int kSampleRadius = 6;
 
-const int kMaxMatchAttempts = 4;
+const unsigned int kMaxMatchAttempts = 4;
 
 constexpr double PI = 3.1415926535898;
 
 void GetCorners(const cv::Mat &src, std::vector<cv::Point2f> &dst) {
   cv::Mat corners = cv::Mat::zeros(src.size(), CV_32FC1);
   cv::goodFeaturesToTrack(src, dst, 16, 0.01, 20);
-}
-
-int VecMax(const cv::Vec3b &v) {
-  return std::max({v[0], v[1], v[2]});
-}
-
-int VecMin(const cv::Vec3b &v) {
-  return std::min({v[0], v[1], v[2]});
 }
 
 void SortPoints(const Result &r, cv::Point2f sortedPoints[3]) {
@@ -289,73 +281,11 @@ int main(int argc, char *argv[]) {
             return a.x < b.x;
           }
         });
-    // hsv = cv::Mat::zeros(frame.size(), CV_32FC3);
-    // cv::Mat corners, greyed_corners, mask, masked;
-    // GetCorners(greyed, greyed_corners, corner_k);
 
     std::cout << "corners start " << corners.size() << 
         ", camera size: " << frame.cols << "x" << frame.rows << std::endl;
-    // generate a set of sample points from circles near points, and
-    // apply k-means clustering on the color samples to group them by color.
-    // Then the ones that match up with the four most popular sets (white+colors)
-    // are the square corners! Lol dang this is gonna suck to implement
-    /*
-    auto clusters = KmeansCluster(SamplePoints(corners, frame));
-    auto clusterCount = std::vector<int>(corners.size(), 0);
-    {
-      auto count = 0;
-      for (const auto &c: clusters) {
-        for (const auto &p: c.list) {
-          clusterCount[p.idx] |= 1 << count;
-        }
-        ++count;
-      }
-    }
-
-    // let's count how many each has now:
-    std::transform(clusterCount.begin(), clusterCount.end(), clusterCount.begin(),
-        [&](int &in) -> int {
-          int count = 0;
-          for(auto i = 0; i < clusters.size() && i < 8*sizeof(int); i++) {
-            if ((32 <= clusters[i].list.size()) && (in & 1 << i)) {
-              ++count;
-            }
-          }
-          return count;
-        }
-      );
-
-    auto filteredCorners = std::vector<cv::Point2f>();
-    {
-      int count = 0;
-      for (const auto &p: corners) {
-        // cv::circle(sat, p, 4, 1.0f, 1, 8);
-        // unsigned char gry = 80*clusterCount[count];
-        if (2 <= clusterCount[count] && clusterCount[count] <= 3) {
-          // cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
-          filteredCorners.push_back(p);
-        }
-        ++count;
-      }
-    }
-      */
-
     //auto finalCorners = std::vector<cv::Point2f>();
     auto finalCorners = FindValidSquare(corners, grey);
-    /*
-    if (FindValidSquare(corners, grey, finalCorners)) {
-      for (const auto &p: finalCorners) {
-        std::cout << "corner at " << p.x << ", " << p.y;
-        std::cout << std::endl; 
-        cv::circle(grey, p, 8, cv::Scalar(0, 0, 0), 1, 8, 0);
-        for (const auto &q: finalCorners) {
-          if (p != q) {
-            cv::line(grey, p, q, cv::Scalar(127, 127, 127));
-          }
-        }
-      }
-    }
-    */
     std::sort(finalCorners.begin(), finalCorners.end(),
         [](const Result &a, const Result &b) -> bool {
           return a.score < b.score;
@@ -365,7 +295,7 @@ int main(int argc, char *argv[]) {
       auto matchResults = std::vector<MatchResult>();
       bool inSquare = false;
       cv::Point2f sortedPoints[3];
-      for (auto idx = 0; idx < kMaxMatchAttempts && idx < finalCorners.size(); ++idx) {
+      for (auto idx = 0u; idx < kMaxMatchAttempts && idx < finalCorners.size(); ++idx) {
         r = finalCorners[finalCorners.size() - 1 - idx];
         // let's see where this triangle is relative to our drawing thing
         // first let's figure out its orientation; we need to know
@@ -375,7 +305,61 @@ int main(int argc, char *argv[]) {
         // now let's match it to one of the possible places on the square thing
         matchResults.clear();
         inSquare = MatchPattern(frame, sortedPoints, matchResults);
+        // triangle found, illuminati confirmed
         if (inSquare) break;
+      }
+
+      Transform t{0};
+      if (inSquare) {
+        // let's find the transform!
+        // first let's figure out what points our corners correspond to
+        auto match = matchResults[0];
+        auto viewPointPoints = std::vector<cv::Point2f>();
+        for (const auto &p: sortedPoints) {
+          viewPointPoints.push_back(cv::Point2f(p.x-frame.cols/2, -p.y+frame.rows/2));
+        }
+        auto spacing = Spacing(0);
+        auto isValid = true;
+        // this point's the nondiagonal one!
+        // the other two will be found using the orientation
+        auto matchCenter = cv::Point2f(
+            -60.0+40.0*match.x,
+            -40.0+40.0*match.y
+            );
+        switch (match.orientation) {
+          case 0:
+            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y-40.0));
+            spacing.push_back(cv::Point2f(matchCenter.x-40.0, matchCenter.y));
+            spacing.push_back(matchCenter);
+            break;
+          case 1:
+            spacing.push_back(cv::Point2f(matchCenter.x-40.0, matchCenter.y));
+            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y+40.0));
+            spacing.push_back(matchCenter);
+            break;
+          case 2:
+            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y+40.0));
+            spacing.push_back(cv::Point2f(matchCenter.x+40.0, matchCenter.y));
+            spacing.push_back(matchCenter);
+            break;
+          case 3:
+            spacing.push_back(cv::Point2f(matchCenter.x+40.0, matchCenter.y));
+            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y-40.0));
+            spacing.push_back(matchCenter);
+            break;
+          default:
+            isValid = false;
+            std::cerr << "improper orientation detected." << std::endl;
+        }
+        if (isValid) {
+          t = FindTransform(viewPointPoints, spacing);
+          std::cout << "transform: x " << t.translate.x <<
+              ", y " << t.translate.y <<
+              ", z " << t.translate.z <<
+              ", phi " << t.orientation.x <<
+              ", theta " << t.orientation.y <<
+              ", psi " << t.orientation.z << std::endl;
+        }
       }
       
       const auto triColor = inSquare ? cv::Scalar(0, 0, 0) : cv::Scalar(0, 0, 255);
