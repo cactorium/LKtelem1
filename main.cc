@@ -101,6 +101,7 @@ void SortPoints(const Result &r, cv::Point2f sortedPoints[3]) {
 }
 
 struct MatchResult {
+  // coordinates in the viewpoint space and the orientation
   int x, y, orientation;
 };
 
@@ -352,6 +353,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "improper orientation detected." << std::endl;
         }
         if (isValid) {
+          /*
           t = FindTransform(viewPointPoints, spacing);
           std::cout << "transform: x " << t.translate.x <<
               ", y " << t.translate.y <<
@@ -359,6 +361,19 @@ int main(int argc, char *argv[]) {
               ", phi " << t.orientation.x <<
               ", theta " << t.orientation.y <<
               ", psi " << t.orientation.z << std::endl;
+              */
+          std::cout << "in " << viewPointPoints[0].x << "," <<
+                        viewPointPoints[0].y << " " <<
+                        viewPointPoints[1].x << "," <<
+                        viewPointPoints[1].y << " " <<
+                        viewPointPoints[2].x << "," <<
+                        viewPointPoints[2].y << ";" <<
+                        spacing[0].x << "," <<
+                        spacing[0].y << " " <<
+                        spacing[1].x << "," <<
+                        spacing[1].y << " " <<
+                        spacing[2].x << "," <<
+                        spacing[2].y << std::endl;
         }
       }
       
