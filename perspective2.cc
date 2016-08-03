@@ -1,6 +1,7 @@
 #include "perspective2.h"
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <vector>
 
@@ -9,8 +10,10 @@
 const double SOLUTION_TOL = 0.0001;
 const int MAX_ITERATIONS = 100;
 
-template <typename F> bool QuadSecantMethod(F f, double xs0[4], double xs1[4], double &result, int& idx) {
-  double ys0[4], ys1[4];
+template <typename F> bool QuadSecantMethod(
+    F f, std::array<double, 4> &xs0, std::array<double, 4> &xs1, double &result, int& idx) {
+  auto ys0 = std::array<double, 4>();
+  auto ys1 = std::array<double, 4>();
   f(xs0, ys0);
   f(xs1, ys1);
 
@@ -24,14 +27,15 @@ template <typename F> bool QuadSecantMethod(F f, double xs0[4], double xs1[4], d
     return true;
   };
   while (notsolved() && iterationCount < MAX_ITERATIONS) {
-    double xNext[4];
+    auto xNext = std::array <double, 4>();
     for (int i = 0; i < 4; ++i) {
       xNext[i] = xs1[i] - 1.0 * ys1[i] * (xs1[i] - xs0[i])/(ys1[i] - ys0[i]);
     }
-    memcpy(static_cast<void*>(xs0), static_cast<const void*>(xs1), 4*sizeof(double));
-    memcpy(static_cast<void*>(xs1), static_cast<const void*>(xNext), 4*sizeof(double));
 
-    memcpy(static_cast<void*>(ys0), static_cast<const void*>(ys1), 4*sizeof(double));
+    std::copy(xs1.begin(), xs1.end(), xs0.begin());
+    std::copy(xNext.begin(), xNext.end(), xs1.begin());
+
+    std::copy(ys1.begin(), ys1.end(), ys0.begin());
     f(xs1, ys1);
     ++iterationCount;
   }
@@ -47,21 +51,22 @@ template <typename F> bool QuadSecantMethod(F f, double xs0[4], double xs1[4], d
 }
 
 template <typename F> bool LinearThenSecantMethod(
-    F f, const double lower[4], const double upper[4], double &result, int& idx) {
+    F f, const std::array<double, 4>& lower, const std::array<double, 4>& upper,
+    double &result, int& idx) {
   const int NUM_SEARCH = 16;
-  double closestPos[4];
-  double closestVal[4];
+  auto closestPos = std::array<double, 4>();
+  auto closestVal = std::array<double, 4>();
   for (int i = 0; i < 4; ++i) {
     closestPos[i] = 0.0;
     closestVal[i] = std::numeric_limits<double>::max();
   }
 
   for (int i = 0; i < NUM_SEARCH; ++i) {
-    double pos[4];
+    auto pos = std::array<double, 4>();
     for (int j = 0; j < 4; ++j) {
       pos[j] = lower[j] + i*(upper[j] - lower[j])/NUM_SEARCH;
     }
-    double result[4];
+    auto result = std::array<double, 4>();
     f(pos, result);
     for (int j = 0; j < 4; ++j) {
       if (std::abs(result[j]) < closestVal[j]) {
@@ -71,7 +76,7 @@ template <typename F> bool LinearThenSecantMethod(
     }
   }
 
-  double closestPos2[4];
+  auto closestPos2 = std::array<double, 4>();
   for (int i = 0; i < 4; ++i) {
     closestPos2[i] = closestPos[i] + (upper[i] - lower[i])/(2*NUM_SEARCH);
   }
@@ -82,7 +87,8 @@ template <typename F> bool LinearThenSecantMethod(
 bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
     const Spacing &rps, double cameraDepth, double cameraScale, Coordinates& out) {
 
-  double alpha[3], beta[3];
+  auto alpha = std::array<double, 3>();
+  auto beta = std::array<double, 3>();
   for (int i = 0; i < 3; ++i) {
     alpha[i] = cameraScale*(vpp[i].x)/cameraDepth;
     beta[i] = cameraScale*(vpp[i].y)/cameraDepth;
@@ -129,7 +135,7 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
         - 2.0*(alpha[1]*alpha[2] + beta[1]*beta[2] + 1.0)*z2*z3
         + (sq(alpha[1]) + sq(beta[1]) + 1.0)*sq(z2) - sq(v);
   };
-  auto allExprs = [&](const double xs[4], double out[4]) {
+  auto allExprs = [&](const std::array<double, 4>& xs, std::array<double, 4>& out) {
     out[0] = expr(z2plus(xs[0]), z3plus(xs[0]));
     out[1] = expr(z2plus(xs[1]), z3minu(xs[1]));
     out[2] = expr(z2minu(xs[2]), z3plus(xs[2]));
@@ -141,8 +147,8 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
       std::sqrt(-a2*sq(w)/(sq(b2)-a2*c1)));
   double z1 = 0.0;
   int idx = -1;
-  double lowerBounds[4];
-  double upperBounds[4];
+  auto lowerBounds = std::array<double, 4>();
+  auto upperBounds = std::array<double, 4>();
   for (int i = 0; i < 4; ++i) {
     lowerBounds[i] = cameraDepth;
     upperBounds[i] = maxZ;

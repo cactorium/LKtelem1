@@ -14,7 +14,7 @@
 
 #include "kmeans.h"
 #include "search.h"
-#include "perspective.h"
+#include "perspective2.h"
 
 // camera skeleton code is from stack overflow:
 // http://stackoverflow.com/questions/21202088/how-to-get-live-stream-from-webcam-in-opencv-ubuntu
@@ -30,6 +30,18 @@ const unsigned int kSampleRadius = 6;
 const unsigned int kMaxMatchAttempts = 4;
 
 constexpr double PI = 3.1415926535898;
+
+int cameraDepthInt = 20;
+int cameraScaleInt = 1;
+double cameraDepth = 10.0;
+double cameraScale = 100.0;
+
+void OnTrackbar(int, void*) {
+  cameraDepth = cameraDepthInt < 1? 1 :
+    (cameraDepthInt > 400 ? 400 : static_cast<double>(cameraDepthInt));
+  cameraScale = cameraScaleInt < 1? 0.001 :
+    (cameraDepthInt > 1000 ? 1.0 : static_cast<double>(cameraScale)/1000.0);
+}
 
 void GetCorners(const cv::Mat &src, std::vector<cv::Point2f> &dst) {
   cv::Mat corners = cv::Mat::zeros(src.size(), CV_32FC1);
@@ -261,6 +273,9 @@ int main(int argc, char *argv[]) {
   cv::namedWindow("feed");
   cv::namedWindow("corners");
 
+  cv::createTrackbar("feed", "camera depth", &cameraDepthInt, 400, OnTrackbar);
+  cv::createTrackbar("feed", "camera scale", &cameraScaleInt, 1000, OnTrackbar);
+
   auto camera = cv::VideoCapture(-1);
   auto corners = std::vector<cv::Point2f>(16);
   while (camera.isOpened()) {
@@ -310,7 +325,6 @@ int main(int argc, char *argv[]) {
         if (inSquare) break;
       }
 
-      Transform t{0};
       if (inSquare) {
         // let's find the transform!
         // first let's figure out what points our corners correspond to
@@ -323,12 +337,14 @@ int main(int argc, char *argv[]) {
         auto isValid = true;
         // this point's the nondiagonal one!
         // the other two will be found using the orientation
+        // TODO: fix this
         auto matchCenter = cv::Point2f(
             -60.0+40.0*match.x,
             -40.0+40.0*match.y
             );
         switch (match.orientation) {
           case 0:
+            // TODO: fix these
             spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y-40.0));
             spacing.push_back(cv::Point2f(matchCenter.x-40.0, matchCenter.y));
             spacing.push_back(matchCenter);
@@ -353,15 +369,10 @@ int main(int argc, char *argv[]) {
             std::cerr << "improper orientation detected." << std::endl;
         }
         if (isValid) {
-          /*
-          t = FindTransform(viewPointPoints, spacing);
-          std::cout << "transform: x " << t.translate.x <<
-              ", y " << t.translate.y <<
-              ", z " << t.translate.z <<
-              ", phi " << t.orientation.x <<
-              ", theta " << t.orientation.y <<
-              ", psi " << t.orientation.z << std::endl;
-              */
+          Coordinates outCoords;
+          if (FindCoordinates(viewPointPoints, spacing, cameraDepth, cameraScale, outCoords)) {
+            std::cout << "coordinates found!" << std::endl;
+          }
           std::cout << "in " << viewPointPoints[0].x << "," <<
                         viewPointPoints[0].y << " " <<
                         viewPointPoints[1].x << "," <<
