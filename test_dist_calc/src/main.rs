@@ -1,3 +1,5 @@
+use std::f64::MAX;
+
 struct Point<T> {
     x: T,
     y: T,
@@ -82,9 +84,9 @@ fn secant_method<F: Fn(f64) -> f64>(f: F, x0: f64, x1: f64) -> Option<f64> {
     }
 }
 
-fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: F, x0: f64, x1: f64) -> Option<f64> {
-    let mut xs0: [f64; 4] = [x0; 4];
-    let mut xs1: [f64; 4] = [x1; 4];
+fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, xs0: &[f64; 4], xs1: &[f64; 4]) -> Option<f64> {
+    let mut xs0: [f64; 4] = *xs0;
+    let mut xs1: [f64; 4] = *xs1;
     let mut y_0: [f64; 4] = f(&xs0);
     let mut y_1: [f64; 4] = f(&xs1);
 
@@ -115,6 +117,35 @@ fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: F, x0: f64, x1: f64) -> O
         .map(|(idx, y)| xs1[idx])
 }
 
+fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 4], upper: &[f64; 4]) -> Option<f64> {
+    const NUM_SEARCH: usize = 16;
+
+    let mut closest = [(0.0, std::f64::MAX); 4];
+
+    for i in 0usize..NUM_SEARCH {
+        let mut pos: [f64; 4] = [0.0; 4];
+        for (idx, p) in pos.iter_mut().enumerate() {
+            *p = lower[idx] + (i as f64)*(upper[idx] - lower[idx])/(NUM_SEARCH as f64);
+        }
+        let result = f(&pos);
+        for j in 0usize..4 {
+            if result[j].abs() < closest[j].1 {
+                closest[j] = (pos[j], result[j].abs());
+            }
+        }
+        println!("lin search iteration {}: {:?}", i, pos);
+        println!("{:?} {:?}", result, closest);
+    }
+
+    println!("lin search results: {:?}", closest);
+    let mut closest1: [f64; 4] = [0.0; 4];
+    let mut closest2: [f64; 4] = [0.0; 4];
+    for i in 0usize..4 {
+        closest1[i] = closest[i].0;
+        closest2[i] = closest[i].0 + (upper[i] - lower[i])/(2.0 * (NUM_SEARCH as f64));
+    }
+    quad_secant_method(&f, &closest1, &closest2)
+}
 
 fn test_input(inp: Input) {
     let camera_depth = 10.0;
@@ -170,7 +201,10 @@ fn test_input(inp: Input) {
     };
 
     // let maybe_z1 = secant_method(all_expr, 10.0, 20.0);
-    let maybe_z1 = quad_secant_method(all_exprs, 10.0, 12.0);
+    let maybe_z1 = quad_secant_method(&all_exprs, &[10.0; 4], &[12.0; 4]);
+    let max_z = ((-a1*sq(u)/(sq(b1)-a1*c1)).sqrt()).
+        min((-a2*sq(w)/(sq(b2)-a2*c1)).sqrt());
+    let maybe_z1 = linear_then_secant_method(&all_exprs, &[0.0; 4], &[max_z; 4]);
     println!("{:?}", maybe_z1);
 }
 
