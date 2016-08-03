@@ -17,18 +17,18 @@ template <typename F> bool QuadSecantMethod(F f, double xs0[4], double xs1[4], d
   auto iterationCount = 0;
   auto notsolved = [&]() -> bool {
     for (int i = 0; i < 4; ++i) {
-      if (!isnan(ys1[i]) && abs(ys1[i]) <= SOLUTION_TOL) {
+      if (!std::isnan(ys1[i]) && std::abs(ys1[i]) <= SOLUTION_TOL) {
         return false;
       }
     }
     return true;
-  }
-  while (notsolved(ys1) && iterationCount < MAX_ITERATIONS) {
+  };
+  while (notsolved() && iterationCount < MAX_ITERATIONS) {
     double xNext[4];
     for (int i = 0; i < 4; ++i) {
       xNext[i] = xs1[i] - 1.0 * ys1[i] * (xs1[i] - xs0[i])/(ys1[i] - ys0[i]);
     }
-    memcpy(static_cast<void*>(xs0), static_cast<const void*>(xs0), 4*sizeof(double));
+    memcpy(static_cast<void*>(xs0), static_cast<const void*>(xs1), 4*sizeof(double));
     memcpy(static_cast<void*>(xs1), static_cast<const void*>(xNext), 4*sizeof(double));
 
     memcpy(static_cast<void*>(ys0), static_cast<const void*>(ys1), 4*sizeof(double));
@@ -37,7 +37,7 @@ template <typename F> bool QuadSecantMethod(F f, double xs0[4], double xs1[4], d
   }
 
   for (int i = 0; i < 4; ++i) {
-    if (abs(ys1[i]) <= SOLUTION_TOL) {
+    if (std::abs(ys1[i]) <= SOLUTION_TOL) {
       idx = i;
       result = xs1[idx];
       return true;
@@ -64,19 +64,19 @@ template <typename F> bool LinearThenSecantMethod(
     double result[4];
     f(pos, result);
     for (int j = 0; j < 4; ++j) {
-      if (abs(result[j]) < closestVal[j]) {
-        closestVal[j] = abs(result[j]);
+      if (std::abs(result[j]) < closestVal[j]) {
+        closestVal[j] = std::abs(result[j]);
         closestPos[j] = pos[j];
       }
     }
   }
 
-  double closestVal2[4];
+  double closestPos2[4];
   for (int i = 0; i < 4; ++i) {
-    closestVal2[i] = closestVal[i] + (upper[i] - lower[i])/(2*NUM_SEARCH);
+    closestPos2[i] = closestPos[i] + (upper[i] - lower[i])/(2*NUM_SEARCH);
   }
 
-  return QuadSecantMethod(f, closestVal, closestVal2, result, idx);
+  return QuadSecantMethod(f, closestPos, closestPos2, result, idx);
 }
 
 bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
@@ -89,8 +89,8 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
   }
 
   auto sq = [](double x) -> double { return x*x; };
-  auto dist = [&](cv::Point2f& a, cv::Point2f &b)[] -> double {
-    return sqrt(sq(a.x - b.x) + sq(a.y - b.y));
+  auto dist = [&](const cv::Point2f& a, const cv::Point2f &b) -> double {
+    return std::sqrt(sq(a.x - b.x) + sq(a.y - b.y));
   };
 
   auto u = dist(rps[0], rps[1]);
@@ -102,7 +102,7 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
   auto c1 = sq(alpha[0]) + sq(beta[0]) + 1.0;
 
   auto z2discr = [&](double z1) -> double {
-    return sqrt((sq(b1) - a1*c1)*sq(z1) + a1*sq(u));
+    return std::sqrt((sq(b1) - a1*c1)*sq(z1) + a1*sq(u));
   };
   auto z2plus = [&](double z1) -> double {
     return (z1*b1 + z2discr(z1))/a1;
@@ -111,11 +111,11 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
     return (z1*b1 - z2discr(z1))/a1;
   };
 
-  auto a2 = sq(alphas[2]) + sq(betas[2]) + 1.0;
-  auto b2 = alphas[0]*alphas[2] + betas[0]*betas[2] + 1.0;
+  auto a2 = sq(alpha[2]) + sq(beta[2]) + 1.0;
+  auto b2 = alpha[0]*alpha[2] + beta[0]*beta[2] + 1.0;
 
   auto z3discr = [&](double z1) -> double {
-    return ((sq(b2) - a2*c1)*sq(z1) + a2*sq(w)).sqrt();
+    return std::sqrt((sq(b2) - a2*c1)*sq(z1) + a2*sq(w));
   };
   auto z3plus = [&](double z1) -> double {
     return (z1*b2 + z3discr(z1))/a2;
@@ -125,9 +125,9 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
   };
 
   auto expr = [&](double z2, double z3) -> double {
-    return (sq(alphas[2]) + sq(betas[2]) + 1.0)*sq(z3) 
-        - 2.0*(alphas[1]*alphas[2] + betas[1]*betas[2] + 1.0)*z2*z3
-        + (sq(alphas[1]) + sq(betas[1]) + 1.0)*sq(z2) - sq(v);
+    return (sq(alpha[2]) + sq(beta[2]) + 1.0)*sq(z3) 
+        - 2.0*(alpha[1]*alpha[2] + beta[1]*beta[2] + 1.0)*z2*z3
+        + (sq(alpha[1]) + sq(beta[1]) + 1.0)*sq(z2) - sq(v);
   };
   auto allExprs = [&](const double xs[4], double out[4]) {
     out[0] = expr(z2plus(xs[0]), z3plus(xs[0]));
@@ -137,8 +137,8 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
   };
 
   auto maxZ = std::min(
-      sqrt(-a1*sq(u)/(sq(b1)-a1*c1)),
-      sqrt(-a2*sq(w)/(sq(b2)-a2*c1)));
+      std::sqrt(-a1*sq(u)/(sq(b1)-a1*c1)),
+      std::sqrt(-a2*sq(w)/(sq(b2)-a2*c1)));
   double z1 = 0.0;
   int idx = -1;
   double lowerBounds[4];
@@ -148,15 +148,15 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
     upperBounds[i] = maxZ;
   }
   auto success = LinearThenSecantMethod(
-      all_exprs,
+      allExprs,
       lowerBounds,
-      upperBounds
+      upperBounds,
       z1,
       idx
   );
 
   if (success) {
-    auto z1 = z1;
+    // auto z1 = z1;
     auto z2 = 0.0;
     if (idx == 0 || idx == 1) {
       z2 = z2plus(z1);
@@ -170,9 +170,9 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
       z3 = z3minu(z1);
     }
     out.clear();
-    out.push_back(Vector3f{alpha[0]*z1, beta[0]*z1, z1-camera_depth});
-    out.push_back(Vector3f{alpha[1]*z2, beta[1]*z2, z2-camera_depth});
-    out.push_back(Vector3f{alpha[2]*z3, beta[2]*z3, z3-camera_depth});
+    out.push_back(Vector3f{alpha[0]*z1, beta[0]*z1, z1-cameraDepth});
+    out.push_back(Vector3f{alpha[1]*z2, beta[1]*z2, z2-cameraDepth});
+    out.push_back(Vector3f{alpha[2]*z3, beta[2]*z3, z3-cameraDepth});
 
     return true;
   } else {
