@@ -1,8 +1,16 @@
 use std::f64::MAX;
 
+#[derive(Clone, Copy, Debug)]
 struct Point<T> {
     x: T,
     y: T,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Coord {
+    x: f64,
+    y: f64,
+    z: f64,
 }
 
 struct Input {
@@ -28,7 +36,7 @@ fn mullers_method<F: Fn(f64) -> f64>(f: F, x0: f64, x1: f64, x2: f64) -> Option<
 
     let mut yk1 = f(xk1);
     let mut iteration_count = 0;
-    println!("xk1: {}, yk1: {}", xk1, yk1);
+    //println!("xk1: {}, yk1: {}", xk1, yk1);
 
     while yk1.abs() > SOLUTION_TOL && iteration_count < MAX_ITERATIONS {
         let tmp = divided_differences(&f, &[xk1, xk2, xk3]);
@@ -42,7 +50,7 @@ fn mullers_method<F: Fn(f64) -> f64>(f: F, x0: f64, x1: f64, x2: f64) -> Option<
         xk2 = xk1;
         xk1 = xk;
         yk1 = f(xk1);
-        println!("xk1: {}, yk1: {}", xk1, yk1);
+        //println!("xk1: {}, yk1: {}", xk1, yk1);
 
 
         iteration_count += 1;
@@ -60,7 +68,7 @@ fn secant_method<F: Fn(f64) -> f64>(f: F, x0: f64, x1: f64) -> Option<f64> {
 
     let mut y_0 = f(x0);
     let mut y_1 = f(x1);
-    println!("x0: {}, x1: {}, y0: {}, y1: {}", x0, x1, y_0, y_1);
+    //println!("x0: {}, x1: {}, y0: {}, y1: {}", x0, x1, y_0, y_1);
 
     let mut iteration_count = 0;
 
@@ -72,7 +80,7 @@ fn secant_method<F: Fn(f64) -> f64>(f: F, x0: f64, x1: f64) -> Option<f64> {
 
         y_0 = y_1;
         y_1 = f(x1);
-        println!("x0: {}, x1: {}, y0: {}, y1: {}", x0, x1, y_0, y_1);
+        //println!("x0: {}, x1: {}, y0: {}, y1: {}", x0, x1, y_0, y_1);
         
         iteration_count += 1;
     }
@@ -84,13 +92,13 @@ fn secant_method<F: Fn(f64) -> f64>(f: F, x0: f64, x1: f64) -> Option<f64> {
     }
 }
 
-fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, xs0: &[f64; 4], xs1: &[f64; 4]) -> Option<f64> {
+fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, xs0: &[f64; 4], xs1: &[f64; 4]) -> Option<(f64, usize)> {
     let mut xs0: [f64; 4] = *xs0;
     let mut xs1: [f64; 4] = *xs1;
     let mut y_0: [f64; 4] = f(&xs0);
     let mut y_1: [f64; 4] = f(&xs1);
 
-    println!("x0: {:?}, y0: {:?}, x1: {:?}, y1: {:?}", xs0, y_0, xs1, y_1);
+    //println!("x0: {:?}, y0: {:?}, x1: {:?}, y1: {:?}", xs0, y_0, xs1, y_1);
 
     let mut iteration_count = 0;
 
@@ -105,7 +113,7 @@ fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, xs0: &[f64; 4], xs1: 
 
         y_0 = y_1;
         y_1 = f(&xs1);
-        println!("x0: {:?}, y0: {:?}, x1: {:?}, y1: {:?}", xs0, y_0, xs1, y_1);
+        //println!("x0: {:?}, y0: {:?}, x1: {:?}, y1: {:?}", xs0, y_0, xs1, y_1);
         
         iteration_count += 1;
     }
@@ -114,10 +122,10 @@ fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, xs0: &[f64; 4], xs1: 
         .enumerate()
         .filter(|&(idx, y)| y.abs() <= SOLUTION_TOL)
         .next()
-        .map(|(idx, y)| xs1[idx])
+        .map(|(idx, y)| (xs1[idx], idx))
 }
 
-fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 4], upper: &[f64; 4]) -> Option<f64> {
+fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 4], upper: &[f64; 4]) -> Option<(f64, usize)> {
     const NUM_SEARCH: usize = 16;
 
     let mut closest = [(0.0, std::f64::MAX); 4];
@@ -133,8 +141,8 @@ fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 
                 closest[j] = (pos[j], result[j].abs());
             }
         }
-        println!("lin search iteration {}: {:?}", i, pos);
-        println!("{:?} {:?}", result, closest);
+        //println!("lin search iteration {}: {:?}", i, pos);
+        //println!("{:?} {:?}", result, closest);
     }
 
     println!("lin search results: {:?}", closest);
@@ -147,14 +155,15 @@ fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 
     quad_secant_method(&f, &closest1, &closest2)
 }
 
-fn test_input(inp: Input) {
+fn test_input(inp: Input) -> Option<[Coord; 3]> {
     let camera_depth = 10.0;
+    let camera_scale = 0.1;
 
     let mut alphas = [0.0; 3];
     let mut betas = [0.0; 3];
     for (idx, ref pt) in inp.camera.iter().enumerate() {
-        alphas[idx] = (pt.x as f64)/camera_depth;
-        betas[idx] = (pt.y as f64)/camera_depth;
+        alphas[idx] = camera_scale*(pt.x as f64)/camera_depth;
+        betas[idx] = camera_scale*(pt.y as f64)/camera_depth;
     }
 
     // make immutable for the rest of the function
@@ -172,15 +181,15 @@ fn test_input(inp: Input) {
     let c1 = sq(alphas[0]) + sq(betas[0]) + 1.0;
 
     let z2discr = |z1| ((sq(b1) - a1*c1)*sq(z1) + a1*sq(u)).sqrt();
-    let z2plus = |z1: f64| (-z1*b1 + z2discr(z1))/a1;
-    let z2minu = |z1: f64| (-z1*b1 - z2discr(z1))/a1;
+    let z2plus = |z1: f64| (z1*b1 + z2discr(z1))/a1;
+    let z2minu = |z1: f64| (z1*b1 - z2discr(z1))/a1;
 
     let a2 = sq(alphas[2]) + sq(betas[2]) + 1.0;
     let b2 = alphas[0]*alphas[2] + betas[0]*betas[2] + 1.0;
 
     let z3discr = |z1| ((sq(b2) - a2*c1)*sq(z1) + a2*sq(w)).sqrt();
-    let z3plus = |z1: f64| (-z1*b2 + z3discr(z1))/a2;
-    let z3minu = |z1: f64| (-z1*b2 - z3discr(z1))/a2;
+    let z3plus = |z1: f64| (z1*b2 + z3discr(z1))/a2;
+    let z3minu = |z1: f64| (z1*b2 - z3discr(z1))/a2;
 
     let expr = |z2: f64, z3: f64| (sq(alphas[2]) + sq(betas[2]) + 1.0)*sq(z3) 
         - 2.0*(alphas[1]*alphas[2] + betas[1]*betas[2] + 1.0)*z2*z3
@@ -201,16 +210,52 @@ fn test_input(inp: Input) {
     };
 
     // let maybe_z1 = secant_method(all_expr, 10.0, 20.0);
-    let maybe_z1 = quad_secant_method(&all_exprs, &[10.0; 4], &[12.0; 4]);
+    // let maybe_z1 = quad_secant_method(&all_exprs, &[10.0; 4], &[12.0; 4]);
     let max_z = ((-a1*sq(u)/(sq(b1)-a1*c1)).sqrt()).
         min((-a2*sq(w)/(sq(b2)-a2*c1)).sqrt());
-    let maybe_z1 = linear_then_secant_method(&all_exprs, &[0.0; 4], &[max_z; 4]);
+    let maybe_z1 = linear_then_secant_method(&all_exprs, &[camera_depth; 4], &[max_z; 4]);
     println!("{:?}", maybe_z1);
+    match maybe_z1 {
+        None => {
+            None
+        },
+        Some((z1, idx)) => {
+            let z1 = z1;
+            let z2 = if idx == 0 || idx == 1 {
+                z2plus(z1)
+            } else {
+                z2minu(z1)
+            };
+            let z3 = if idx == 0 || idx == 2 {
+                z3plus(z1)
+            } else {
+                z3minu(z1)
+            };
+
+            Some([
+                Coord{
+                    x: alphas[0]*z1,
+                    y: betas[0]*z1,
+                    z: z1 - camera_depth,
+                },
+                Coord{
+                    x: alphas[1]*z2,
+                    y: betas[1]*z2,
+                    z: z2 - camera_depth,
+                },
+                Coord{
+                    x: alphas[2]*z3,
+                    y: betas[2]*z3,
+                    z: z3 - camera_depth,
+                },
+            ])
+        }
+    }
 }
 
 fn main() {
     println!("Hello, world!");
-    test_input(Input{
+    let ret1 = test_input(Input{
         camera: [
             Point{x: 19.0, y: 50.0},
             Point{x: 83.0, y: -19.0},
@@ -222,4 +267,34 @@ fn main() {
             Point{x: 100.0, y: 100.0},
         ],
     });
+    println!("{:?}", ret1);
+    let ret1 = ret1.unwrap();
+    let cret1: [Point<f64>; 3] = [
+        Point{
+            x: ret1[0].x/ret1[0].z,
+            y: ret1[0].y/ret1[0].z,
+        },
+        Point{
+            x: ret1[1].x/ret1[1].z,
+            y: ret1[1].y/ret1[1].z,
+        },
+        Point{
+            x: ret1[2].x/ret1[2].z,
+            y: ret1[2].y/ret1[2].z,
+        },
+    ];
+    println!("{:?}", cret1);
+    let ret2 = test_input(Input{
+        camera: [
+            Point{x: 132.0, y: -22.0},
+            Point{x: 65.0, y: 47.0},
+            Point{x: 131.0, y: 42.0},
+        ],
+        target: [
+            Point{x: 100.0, y: -100.0},
+            Point{x: -100.0, y: 100.0},
+            Point{x: 100.0, y: 100.0},
+        ],
+    });
+    println!("{:?}", ret2);
 }
