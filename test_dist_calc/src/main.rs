@@ -1,5 +1,3 @@
-use std::f64::MAX;
-
 #[derive(Clone, Copy, Debug)]
 struct Point<T> {
     x: T,
@@ -120,9 +118,9 @@ fn quad_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, xs0: &[f64; 4], xs1: 
 
     y_1.iter()
         .enumerate()
-        .filter(|&(idx, y)| y.abs() <= SOLUTION_TOL)
+        .filter(|&(_, y)| y.abs() <= SOLUTION_TOL)
         .next()
-        .map(|(idx, y)| (xs1[idx], idx))
+        .map(|(idx, _)| (xs1[idx], idx))
 }
 
 fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 4], upper: &[f64; 4]) -> Option<(f64, usize)> {
@@ -130,15 +128,16 @@ fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 
 
     let mut closest = [(0.0, std::f64::MAX); 4];
 
-    for i in 0usize..NUM_SEARCH {
+    for i in 0..NUM_SEARCH {
         let mut pos: [f64; 4] = [0.0; 4];
-        for (idx, p) in pos.iter_mut().enumerate() {
-            *p = lower[idx] + (i as f64)*(upper[idx] - lower[idx])/(NUM_SEARCH as f64);
+        for (j, p) in pos.iter_mut().enumerate() {
+            *p = lower[j] + (i as f64)*(upper[j] - lower[j])/(NUM_SEARCH as f64);
         }
         let result = f(&pos);
-        for j in 0usize..4 {
-            if result[j].abs() < closest[j].1 {
-                closest[j] = (pos[j], result[j].abs());
+        for (j, val) in closest.iter_mut().enumerate() {
+            let (_, v) = *val;
+            if result[j].abs() < v {
+                *val = (pos[j], result[j].abs());
             }
         }
         //println!("lin search iteration {}: {:?}", i, pos);
@@ -148,9 +147,10 @@ fn linear_then_secant_method<F: Fn(&[f64; 4]) -> [f64; 4]>(f: &F, lower: &[f64; 
     println!("lin search results: {:?}", closest);
     let mut closest1: [f64; 4] = [0.0; 4];
     let mut closest2: [f64; 4] = [0.0; 4];
-    for i in 0usize..4 {
-        closest1[i] = closest[i].0;
-        closest2[i] = closest[i].0 + (upper[i] - lower[i])/(2.0 * (NUM_SEARCH as f64));
+    for (i, val) in closest.iter().enumerate() {
+        let (v, _) = *val;
+        closest1[i] = v;
+        closest2[i] = v + (upper[i] - lower[i])/(2.0 * (NUM_SEARCH as f64));
     }
     quad_secant_method(&f, &closest1, &closest2)
 }
