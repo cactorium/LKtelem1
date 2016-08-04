@@ -67,7 +67,13 @@ template <typename F> bool LinearThenSecantMethod(
       pos[j] = lower[j] + i*(upper[j] - lower[j])/NUM_SEARCH;
     }
     auto result = std::array<double, 4>();
+    //std::cout << "lin search try " << pos[0] << std::endl;
     f(pos, result);
+    //std::cout << "\t results " <<
+      //result[0] << " " <<
+      //result[1] << " " <<
+      //result[2] << " " <<
+      //result[3] << std::endl;
     for (int j = 0; j < 4; ++j) {
       if (std::abs(result[j]) < closestVal[j]) {
         closestVal[j] = std::abs(result[j]);
@@ -80,6 +86,12 @@ template <typename F> bool LinearThenSecantMethod(
   for (int i = 0; i < 4; ++i) {
     closestPos2[i] = closestPos[i] + (upper[i] - lower[i])/(2*NUM_SEARCH);
   }
+  //std::cout << "lin search best solutions: " <<
+    //"(" << closestPos[0] << ", " << closestVal[0] << ") " <<
+    //"(" << closestPos[1] << ", " << closestVal[1] << ") " <<
+    //"(" << closestPos[2] << ", " << closestVal[2] << ") " <<
+    //"(" << closestPos[3] << ", " << closestVal[3] << ") " <<
+    //std::endl;
 
   return QuadSecantMethod(f, closestPos, closestPos2, result, idx);
 }
@@ -142,6 +154,8 @@ bool FindCoordinates(const std::vector<cv::Point2f> &vpp,
     out[3] = expr(z2minu(xs[3]), z3minu(xs[3]));
   };
 
+  //std::cout << "TST" << sq(4.0) << std::endl;
+  //std::cout << "TEST" << -a1*sq(u)/(sq(b1)-a1*c1) << std::endl;
   auto maxZ = std::min(
       std::sqrt(-a1*sq(u)/(sq(b1)-a1*c1)),
       std::sqrt(-a2*sq(w)/(sq(b2)-a2*c1)));

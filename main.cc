@@ -31,16 +31,17 @@ const unsigned int kMaxMatchAttempts = 4;
 
 constexpr double PI = 3.1415926535898;
 
-int cameraDepthInt = 20;
-int cameraScaleInt = 1;
+int cameraDepthInt = 10;
+int cameraScaleInt = 100;
 double cameraDepth = 10.0;
-double cameraScale = 100.0;
+double cameraScale = 0.10;
 
 void OnTrackbar(int, void*) {
   cameraDepth = cameraDepthInt < 1? 1 :
     (cameraDepthInt > 400 ? 400 : static_cast<double>(cameraDepthInt));
   cameraScale = cameraScaleInt < 1? 0.001 :
-    (cameraDepthInt > 1000 ? 1.0 : static_cast<double>(cameraScale)/1000.0);
+    (cameraScale> 1000 ? 1.0 : static_cast<double>(cameraScaleInt)/1000.0);
+  std::cout << "cameraDepth: " << cameraDepth << ", cameraScale: " << cameraScale << std::endl;
 }
 
 void GetCorners(const cv::Mat &src, std::vector<cv::Point2f> &dst) {
@@ -273,8 +274,8 @@ int main(int argc, char *argv[]) {
   cv::namedWindow("feed");
   cv::namedWindow("corners");
 
-  cv::createTrackbar("feed", "camera depth", &cameraDepthInt, 400, OnTrackbar);
-  cv::createTrackbar("feed", "camera scale", &cameraScaleInt, 1000, OnTrackbar);
+  cv::createTrackbar("camera depth", "feed", &cameraDepthInt, 400, OnTrackbar);
+  cv::createTrackbar("camera scale", "feed", &cameraScaleInt, 1000, OnTrackbar);
 
   auto camera = cv::VideoCapture(-1);
   auto corners = std::vector<cv::Point2f>(16);
@@ -298,8 +299,8 @@ int main(int argc, char *argv[]) {
           }
         });
 
-    std::cout << "corners start " << corners.size() << 
-        ", camera size: " << frame.cols << "x" << frame.rows << std::endl;
+    //std::cout << "corners start " << corners.size() << 
+        //", camera size: " << frame.cols << "x" << frame.rows << std::endl;
     //auto finalCorners = std::vector<cv::Point2f>();
     auto finalCorners = FindValidSquare(corners, grey);
     std::sort(finalCorners.begin(), finalCorners.end(),
@@ -337,31 +338,29 @@ int main(int argc, char *argv[]) {
         auto isValid = true;
         // this point's the nondiagonal one!
         // the other two will be found using the orientation
-        // TODO: fix this
         auto matchCenter = cv::Point2f(
             -60.0+40.0*match.x,
             -40.0+40.0*match.y
             );
         switch (match.orientation) {
           case 0:
-            // TODO: fix these
-            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y-40.0));
             spacing.push_back(cv::Point2f(matchCenter.x-40.0, matchCenter.y));
+            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y-40.0));
             spacing.push_back(matchCenter);
             break;
           case 1:
-            spacing.push_back(cv::Point2f(matchCenter.x-40.0, matchCenter.y));
             spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y+40.0));
+            spacing.push_back(cv::Point2f(matchCenter.x-40.0, matchCenter.y));
             spacing.push_back(matchCenter);
             break;
           case 2:
-            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y+40.0));
             spacing.push_back(cv::Point2f(matchCenter.x+40.0, matchCenter.y));
+            spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y+40.0));
             spacing.push_back(matchCenter);
             break;
           case 3:
-            spacing.push_back(cv::Point2f(matchCenter.x+40.0, matchCenter.y));
             spacing.push_back(cv::Point2f(matchCenter.x, matchCenter.y-40.0));
+            spacing.push_back(cv::Point2f(matchCenter.x+40.0, matchCenter.y));
             spacing.push_back(matchCenter);
             break;
           default:
@@ -369,10 +368,6 @@ int main(int argc, char *argv[]) {
             std::cerr << "improper orientation detected." << std::endl;
         }
         if (isValid) {
-          Coordinates outCoords;
-          if (FindCoordinates(viewPointPoints, spacing, cameraDepth, cameraScale, outCoords)) {
-            std::cout << "coordinates found!" << std::endl;
-          }
           std::cout << "in " << viewPointPoints[0].x << "," <<
                         viewPointPoints[0].y << " " <<
                         viewPointPoints[1].x << "," <<
@@ -385,6 +380,23 @@ int main(int argc, char *argv[]) {
                         spacing[1].y << " " <<
                         spacing[2].x << "," <<
                         spacing[2].y << std::endl;
+
+          Coordinates outCoords;
+          if (FindCoordinates(viewPointPoints, spacing, cameraDepth, cameraScale, outCoords)) {
+            std::cout << "coordinates found!" << std::endl;
+            for (auto &v: outCoords) {
+              std::cout << "\t" <<  v.x << ", " << v.y << ", " << v.z << "; " << std::endl;
+            }
+
+            for (auto i = 0; i < 3; ++i) {
+              auto msg = std::stringstream();
+              msg << "(" << outCoords[i].x << 
+                ", " << outCoords[i].y <<
+                ", " << outCoords[i].z << ")";
+              cv::putText(frame, msg.str(), viewPointPoints[i], cv::FONT_HERSHEY_PLAIN,
+                  1.0, cv::Scalar(0), 3, 8);
+            }
+          }
         }
       }
       
